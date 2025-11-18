@@ -9,6 +9,13 @@
     android:orientation="vertical"
     tools:context=".MainActivity">
 
+    <ImageView
+        android:id="@+id/ivUpload"
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
+        android:scaleType="centerCrop"
+        app:srcCompat="@drawable/common_google_signin_btn_icon_dark" />
+
     <EditText
         android:id="@+id/etProvinsi"
         android:layout_width="match_parent"
