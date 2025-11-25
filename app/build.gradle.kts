@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "ky.paba.myfirebase"
-        minSdk = 33
+        minSdk = 30
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -50,4 +50,6 @@ dependencies {
 
     implementation(libs.cloudinanry)
     implementation(libs.glide)
+
+    implementation("com.google.android.gms:play-services-auth:20.4.1")
 }

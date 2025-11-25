@@ -3,8 +3,6 @@ package ky.paba.myfirebase
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
-import android.widget.Adapter
-import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
@@ -17,7 +15,10 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.bumptech.glide.Glide
 import com.cloudinary.android.MediaManager
+import com.cloudinary.android.callback.ErrorInfo
+import com.cloudinary.android.callback.UploadCallback
 import com.google.firebase.Firebase
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.firestore
@@ -85,9 +86,14 @@ class MainActivity : AppCompatActivity() {
             if (view.id == R.id.imgLogo) {
                 val imgView = view as ImageView
                 val defaultImage = com.google.android.gms.base.R.drawable
-                    .common_google_signin_btn_icon_light
+                    .common_google_signin_btn_icon_dark
 
                 if (data is String && data.isNotEmpty()) {
+                    Glide.with(this@MainActivity)
+                        .load(data)
+                        .placeholder(defaultImage)
+                        .error(defaultImage)
+                        .into(imgView)
                 } else {
                     imgView.setImageResource(defaultImage)
                 }
@@ -119,7 +125,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         _btnSimpan.setOnClickListener {
-            TambahData(db, _etProvinsi.text.toString(), _etIbuKota.text.toString())
+            if (selectedImageUri != null) {
+                uploadToCloudinary(db, selectedImageUri!!)
+            } else {
+                TambahData(db, _etProvinsi.text.toString(), _etIbuKota.text.toString(), "")
+            }
         }
 
         readData(db)
@@ -153,25 +163,24 @@ class MainActivity : AppCompatActivity() {
     private fun createImageUri(): Uri? {
         val imageFile = File(
             cacheDir,
-            "temp_image_${System.currentTimeMillis()}"
+            "temp_image_${System.currentTimeMillis()}.jpg"
         )
         return FileProvider.getUriForFile(
             this,
-            "$packageName.fileProvider",
+            "$packageName.fileprovider",
             imageFile
         )
     }
 
     private fun showImagePickDialog() {
-        val options = arrayOf("Pilih dari Galeri", "Ambil Foto")
-
+        val options = arrayOf("Pilih dari Gallery", "Ambil Foto")
         AlertDialog.Builder(this)
             .setTitle("Pilih Gambar")
             .setItems(options) { dialog, which ->
                 when (which) {
                     0 -> pickImageFromGallery.launch("image/*")
                     1 -> {
-                        createImageUri().let { uri ->
+                        createImageUri()?.let { uri ->
                             cameraImageUri = uri
                             takePicture.launch(uri)
                         }
@@ -180,8 +189,59 @@ class MainActivity : AppCompatActivity() {
             }.show()
     }
 
-    fun TambahData(db: FirebaseFirestore, provinsi: String, ibuKota: String) {
-        val dataBaru = daftarProvinsi(provinsi, ibuKota)
+    private fun uploadToCloudinary(db: FirebaseFirestore, uri: Uri) {
+        MediaManager.get().upload(uri)
+            .unsigned(UNSINGED_UPLOAD_PRESET)
+            .option("folder", "cobaFirebase")
+            .callback(object : UploadCallback {
+                override fun onStart(requestId: String?) {
+                    Log.d("Cloudinary", "Upload Start : $requestId")
+                }
+
+                override fun onProgress(
+                    requestId: String?,
+                    bytes: Long,
+                    totalBytes: Long
+                ) {
+                    // biasa untuk progress bar
+
+                }
+
+                override fun onSuccess(
+                    requestId: String?,
+                    resultData: Map<*, *>?
+                ) {
+                    var url = resultData?.get("secure_url")?.toString()
+                    Log.d("Cloudinary", "Upload Success : $url")
+
+                    TambahData(
+                        db,
+                        _etProvinsi.text.toString(),
+                        _etIbuKota.text.toString(),
+                        url.toString()
+                    )
+                }
+
+                override fun onError(
+                    requestId: String?,
+                    error: ErrorInfo?
+                ) {
+                    Log.d("Cloudinary", "Upload Error : ${error.toString()}")
+                }
+
+                override fun onReschedule(
+                    requestId: String?,
+                    error: ErrorInfo?
+                ) {
+                    Log.d("Cloudinary", "Upload Reschedule : ${error.toString()}")
+                }
+
+            }).dispatch()
+        Log.d("Cloudinary", "Upload with preset : $UNSINGED_UPLOAD_PRESET")
+    }
+
+    fun TambahData(db: FirebaseFirestore, provinsi: String, ibuKota: String, imageUrl: String) {
+        val dataBaru = daftarProvinsi(provinsi, ibuKota, imageUrl)
 
         db.collection("tbProvinsi")
             .document(_etProvinsi.text.toString())
@@ -189,6 +249,11 @@ class MainActivity : AppCompatActivity() {
             .addOnSuccessListener {
                 _etProvinsi.setText("")
                 _etIbuKota.setText("")
+                _ivUpload.setImageResource(
+                    com.google.android.gms.base.R.drawable
+                        .common_google_signin_btn_icon_dark
+                )
+                selectedImageUri = null
 
                 readData(db)
                 Log.d("Firebase", dataBaru.provinsi + " Berhasil ditambahkan")
@@ -219,6 +284,9 @@ class MainActivity : AppCompatActivity() {
                     val itemData: MutableMap<String, String> = HashMap(2)
                     itemData["Pro"] = item.data.get("provinsi").toString()
                     itemData["Ibu"] = item.data.get("ibuKota").toString()
+                    itemData["Img"] = item.data.get("imageUrl").toString()
+
+                    Log.d("Firebase", item.data.get("provinsi").toString())
                     data.add(itemData)
                 }
                 lvAdapter.notifyDataSetChanged()
