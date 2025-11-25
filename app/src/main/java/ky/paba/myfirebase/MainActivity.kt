@@ -3,10 +3,12 @@ package ky.paba.myfirebase
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
+import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.ListView
+import android.widget.ProgressBar
 import android.widget.SimpleAdapter
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -36,6 +38,7 @@ class MainActivity : AppCompatActivity() {
     lateinit var _btnSimpan: Button
     lateinit var _lvData: ListView
     lateinit var _ivUpload: ImageView
+    lateinit var _progressBarUpload: ProgressBar
 
 
     private var CLOUDINARY_CLOUD_NAME = "dsfakaa7m"
@@ -63,6 +66,8 @@ class MainActivity : AppCompatActivity() {
         _lvData = findViewById(R.id.lvData)
 
         _ivUpload = findViewById(R.id.ivUpload)
+
+        _progressBarUpload = findViewById<ProgressBar>(R.id.progressBarUpload)
 
         // pakai arrayList
 //        lvAdapter = ArrayAdapter<daftarProvinsi>(
@@ -196,6 +201,12 @@ class MainActivity : AppCompatActivity() {
             .callback(object : UploadCallback {
                 override fun onStart(requestId: String?) {
                     Log.d("Cloudinary", "Upload Start : $requestId")
+
+                    runOnUiThread {
+                        _progressBarUpload.visibility = View.VISIBLE
+                        _progressBarUpload.progress = 0
+                        _progressBarUpload.max = 100
+                    }
                 }
 
                 override fun onProgress(
@@ -204,7 +215,10 @@ class MainActivity : AppCompatActivity() {
                     totalBytes: Long
                 ) {
                     // biasa untuk progress bar
-
+                    val progress = (bytes * 100 / totalBytes).toInt()
+                    runOnUiThread {
+                        _progressBarUpload.progress = progress
+                    }
                 }
 
                 override fun onSuccess(
@@ -220,6 +234,10 @@ class MainActivity : AppCompatActivity() {
                         _etIbuKota.text.toString(),
                         url.toString()
                     )
+
+                    runOnUiThread {
+                        _progressBarUpload.visibility = View.GONE
+                    }
                 }
 
                 override fun onError(
@@ -227,6 +245,10 @@ class MainActivity : AppCompatActivity() {
                     error: ErrorInfo?
                 ) {
                     Log.d("Cloudinary", "Upload Error : ${error.toString()}")
+
+                    runOnUiThread {
+                        _progressBarUpload.visibility = View.GONE
+                    }
                 }
 
                 override fun onReschedule(
@@ -234,6 +256,10 @@ class MainActivity : AppCompatActivity() {
                     error: ErrorInfo?
                 ) {
                     Log.d("Cloudinary", "Upload Reschedule : ${error.toString()}")
+
+                    runOnUiThread {
+                        _progressBarUpload.visibility = View.GONE
+                    }
                 }
 
             }).dispatch()
